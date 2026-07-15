@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER - စနစ်အသုံးပြုသူများ
+// ============================================
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        Role     @default(STUDENT)
+  phone       String?
+  avatar      String?
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignedTags  Tag[]     @relation("AssignedTo")
+  scanLogs      ScanLog[]
+  createdTags   Tag[]     @relation("CreatedBy")
+  createdDevices Device[] @relation("DeviceCreatedBy")
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+// ============================================
+// TAG - RFID Tag များ (ကျောင်းသား/ဆရာ ကတ်ပြား)
+// ============================================
+model Tag {
+  id          String    @id @default(uuid())
+  rfidCode    String    @unique
+  tagType     TagType   @default(PASSIVE)
+  status      TagStatus @default(ACTIVE)
+  description String?
+
+  // ဘယ်သူ့ဆီမှာ ရှိလဲ (Teacher သို့ Student)
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  // Tracking
+  createdById String
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scanLogs ScanLog[]
+
+  @@index([status])
+  @@index([rfidCode])
+  @@map("tags")
+}
+
+enum TagType {
+  PASSIVE
+  ACTIVE
+}
+
+enum TagStatus {
+  ACTIVE
+  INACTIVE
+  LOST
+  DAMAGED
+}
+
+// ============================================
+// DEVICE - RFID Reader စက်များ
+// ============================================
+model Device {
+  id              String       @id @default(uuid())
+  name            String
+  deviceCode      String       @unique
+  deviceType      DeviceType   @default(HANDHELD)
+  location        String?
+  ipAddress       String?
+  status          DeviceStatus @default(OFFLINE)
+  firmwareVersion String?
+
+  lastSeenAt DateTime?
+
+  createdById String
+  createdBy   User         @relation("DeviceCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  scanLogs ScanLog[]
+
+  @@index([status])
+  @@map("devices")
+}
+
+enum DeviceType {
+  HANDHELD
+  FIXED
+  USB
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+}
+
+// ============================================
+// SCAN LOG - တက်ရောက်မှု မှတ်တမ်း
+// ============================================
+model ScanLog {
+  id       String   @id @default(uuid())
+
+  tagId    String
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  deviceId String
+  device   Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  userId   String?
+  user     User?    @relation(fields: [userId], references: [id])
+
+  scanType  ScanType @default(CHECK_IN)
+  scannedAt DateTime @default(now())
+  notes     String?
+
+  @@index([tagId])
+  @@index([deviceId])
+  @@index([scannedAt])
+  @@index([scanType])
+  @@map("scan_logs")
+}
+
+enum ScanType {
+  CHECK_IN
+  CHECK_OUT
+  INVENTORY
+  LOCATE
+}
