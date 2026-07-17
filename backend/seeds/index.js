@@ -11,13 +11,13 @@ const seed = async () => {
   // ============================================
   // 1. USERS
   // ============================================
-  const adminPassword = await hashPassword('admin123');
-  const teacherPassword = await hashPassword('teacher123');
-  const studentPassword = await hashPassword('student123');
+  const adminPassword = await hashPassword('12345678');
+  const teacherPassword = await hashPassword('12345678');
+  const studentPassword = await hashPassword('12345678');
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@gmail.com' },
-    update: {},
+    update: { password: adminPassword },
     create: {
       name: 'Admin',
       email: 'admin@gmail.com',
@@ -29,7 +29,7 @@ const seed = async () => {
 
   const teacher = await prisma.user.upsert({
     where: { email: 'teacher@gmail.com' },
-    update: {},
+    update: { password: teacherPassword },
     create: {
       name: 'Daw Mya Mya',
       email: 'teacher@gmail.com',
@@ -49,7 +49,7 @@ const seed = async () => {
   for (let i = 0; i < studentNames.length; i++) {
     const student = await prisma.user.upsert({
       where: { email: `student${i + 1}@gmail.com` },
-      update: {},
+      update: { password: studentPassword },
       create: {
         name: studentNames[i],
         email: `student${i + 1}@gmail.com`,
@@ -185,12 +185,7 @@ const seed = async () => {
     await prisma.scanLog.create({ data: scan });
   }
 
-  console.log(`✅ Scan Logs: ${scanData.length} records created\n`);
-  console.log('🎉 Seeding completed successfully!');
-  console.log('\n📝 Login Credentials:');
-  console.log('   Admin:   admin@gmail.com / admin123');
-  console.log('   Teacher: teacher@gmail.com / teacher123');
-  console.log('   Student: student1@gmail.com / student123\n');
+  
 };
 
 seed()
