@@ -193,8 +193,8 @@ export default function Users() {
       title: "Date",
       dataIndex: "createdAt",
       align: "center",
-      width: 130,
-      render: (v) => new Date(v).toLocaleDateString("my-MM"),
+      width: 140,
+      render: (v) => new Date(v).toLocaleString("en-US"),
     },
     {
       title: "Action",

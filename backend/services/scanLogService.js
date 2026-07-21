@@ -5,6 +5,50 @@ const prisma = require('../config/db');
  * တက်ရောက်မှုမှတ်တမ်း - System ရဲ့ အသက်သွေးကြော
  */
 
+// ─── Helper: Holiday check (အားလပ်ရက်ဟုတ်/မဟုတ်) ───
+let holidaysCache = [];
+let holidayCacheTime = 0;
+const HOLIDAY_CACHE_TTL = 300000; // 5 မိနစ် cache
+
+const loadHolidays = async () => {
+  const now = Date.now();
+  if (holidaysCache.length > 0 && now - holidayCacheTime < HOLIDAY_CACHE_TTL) {
+    return holidaysCache;
+  }
+  const holidays = await prisma.holiday.findMany({
+    select: { date: true, name: true, type: true },
+  });
+  // dates တွေကို YYYY-MM-DD string အဖြစ်ပြောင်းပြီး Set ထဲထည့်
+  holidaysCache = holidays.map((h) => ({
+    dateStr: h.date.toISOString().split('T')[0],
+    name: h.name,
+    type: h.type,
+  }));
+  holidayCacheTime = now;
+  return holidaysCache;
+};
+
+const isHoliday = async (date) => {
+  const dateStr = new Date(date).toISOString().split('T')[0];
+  const holidays = await loadHolidays();
+  return holidays.find((h) => h.dateStr === dateStr) || null;
+};
+
+/**
+ * Report ထုတ်တဲ့အခါ Holiday dates တွေကို auto-skip
+ * @param {Array} logs - scan logs array
+ * @returns {Array} - holiday မဟုတ်တဲ့ logs ပဲပြန်
+ */
+const filterHolidays = async (logs) => {
+  const holidays = await loadHolidays();
+  const holidayDateSet = new Set(holidays.map((h) => h.dateStr));
+  
+  return logs.filter((log) => {
+    const logDate = new Date(log.scannedAt).toISOString().split('T')[0];
+    return !holidayDateSet.has(logDate);
+  });
+};
+
 // ─── Helper: Settings ဖတ်ပြီး attendance status တွက် ───
 let settingsCache = null;
 let cacheTime = 0;
@@ -240,14 +284,14 @@ const getStats = async (query) => {
   return { total, checkIns, checkOuts, late: lateCount, earlyLeave: earlyLeaveCount, recentLogs: enrichedRecent };
 };
 
-// GET - Report with date range
+// GET - Report with date range + Holiday auto-skip
 const getReport = async (query) => {
   const { startDate, endDate } = query;
   const where = {};
   if (startDate) where.scannedAt = { ...where.scannedAt, gte: new Date(startDate) };
   if (endDate) where.scannedAt = { ...where.scannedAt, lte: new Date(endDate) };
 
-  const [logs, total, checkIns, checkOuts] = await Promise.all([
+  const [logs, total, checkIns, checkOuts, holidaysInRange] = await Promise.all([
     prisma.scanLog.findMany({
       where,
       orderBy: { scannedAt: 'desc' },
@@ -260,10 +304,36 @@ const getReport = async (query) => {
     prisma.scanLog.count({ where }),
     prisma.scanLog.count({ where: { ...where, scanType: 'CHECK_IN' } }),
     prisma.scanLog.count({ where: { ...where, scanType: 'CHECK_OUT' } }),
+    // Report ထုတ်တဲ့ ရက်အပိုင်းအခြားထဲက အားလပ်ရက်တွေကိုပါ ထည့်ပြ
+    (async () => {
+      if (!startDate && !endDate) return [];
+      const dateWhere = {};
+      if (startDate) dateWhere.gte = new Date(startDate);
+      if (endDate) dateWhere.lte = new Date(endDate);
+      return prisma.holiday.findMany({
+        where: { date: dateWhere },
+        orderBy: { date: 'asc' },
+        select: { date: true, name: true, type: true },
+      });
+    })(),
   ]);
 
+  // Holiday dates တွေကို filter လုပ် (အားလပ်ရက်တွေကို report ထဲမပါအောင်)
+  const holidaysInRangeMap = new Set(
+    holidaysInRange.map((h) => h.date.toISOString().split('T')[0])
+  );
+
   const enrichedLogs = await enrichWithAttendance(logs);
-  return { logs: enrichedLogs, stats: { total, checkIns, checkOuts } };
+
+  return {
+    logs: enrichedLogs,
+    stats: { total, checkIns, checkOuts },
+    holidays: holidaysInRange.map((h) => ({
+      date: h.date.toISOString().split('T')[0],
+      name: h.name,
+      type: h.type,
+    })),
+  };
 };
 
-module.exports = { getAll, getById, create, getRecent, getByTag, getStats, getReport, enrichWithAttendance, getSettings };
+module.exports = { getAll, getById, create, getRecent, getByTag, getStats, getReport, enrichWithAttendance, getSettings, isHoliday, filterHolidays };

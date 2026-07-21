@@ -25,6 +25,18 @@ import api from "../../config/api";
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
+const roleColorMap = {
+  ADMIN: "red",
+  TEACHER: "orange",
+  STUDENT: "blue",
+};
+
+const roleLabelMap = {
+  ADMIN: "Admin",
+  TEACHER: "Teacher",
+  STUDENT: "Student",
+};
+
 export default function ScanLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -106,8 +118,18 @@ export default function ScanLogs() {
       title: "User",
       key: "user",
       align: "center", 
-      width: 120,
-      render: (_, r) => r.user?.name || "-",
+      width: 160,
+      render: (_, r) =>
+        r.user ? (
+          <span>
+            {r.user.name}{" "}
+            <span style={{ color: roleColorMap[r.user.role], fontWeight: 500 }}>
+              ({roleLabelMap[r.user.role]})
+            </span>
+          </span>
+        ) : (
+          "-"
+        ),
     },
     {
       title: "Scan Type",

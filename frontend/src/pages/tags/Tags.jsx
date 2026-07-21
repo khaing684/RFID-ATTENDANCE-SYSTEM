@@ -151,7 +151,17 @@ export default function Tags() {
     LOST: { color: "red", text: "Lost" },
     DAMAGED: { color: "orange", text: "Damage" },
   };
+  const roleColorMap = {
+    ADMIN: "#660708",
+    TEACHER: "#89023e",
+    STUDENT: "#004b23",
+  };
 
+  const roleLabelMap = {
+    ADMIN: "Admin",
+    TEACHER: "Teacher",
+    STUDENT: "Student",
+  };
   const columns = [
     {
       title: "RFID Code",
@@ -181,23 +191,24 @@ export default function Tags() {
         />
       ),
     },
+ 
     {
-      title: "Owner",
-      key: "owner",
+      title: "Assigned User",
+      key: "assignedUser",
       align: "center",
-      width: 130,
+      width: 180,
       render: (_, r) =>
         r.assignedTo ? (
-          <Tooltip title={r.assignedTo.role}>{r.assignedTo.name}</Tooltip>
+          <span>
+            {r.assignedTo.name}{" "}
+            <span style={{ color: roleColorMap[r.assignedTo.role], fontWeight: 500 }}>
+              ({roleLabelMap[r.assignedTo.role]})
+            </span>
+          </span>
         ) : (
-          <Tag>No</Tag>
+          "—"
         ),
     },
-    { 
-      title: "Name", 
-      dataIndex: "description", 
-      align: "center",
-      width: 150 },
     {
       title: "Date",
       dataIndex: "createdAt",

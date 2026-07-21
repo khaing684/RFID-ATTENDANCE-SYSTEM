@@ -13,8 +13,8 @@ import {
   Tag,
   Modal,
   Space,
-  TimePicker,
   Divider,
+  TimePicker,
 } from "antd";
 import {
   UserOutlined,
@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import api from "../../config/api";
 import dayjs from "dayjs";
+import HolidayManagement from "./HolidayManagement";
 
 const { Title, Text } = Typography;
 
@@ -251,6 +252,16 @@ export default function Settings() {
           )}
 
         </Row>
+
+        {/* Holiday Calendar Section - Admin အတွက်သာ */}
+        {user?.role === "ADMIN" && (
+          <Row style={{ marginTop: 24 }}>
+            <Col span={24}>
+              <HolidayManagement />
+            </Col>
+          </Row>
+        )}
+
       </div>
 
       {/* Password Change Modal */}

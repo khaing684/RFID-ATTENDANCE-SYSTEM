@@ -4,7 +4,7 @@ const prisma = require('../config/db');
 const getAllGrades = async (req, res, next) => {
   try {
     const grades = await prisma.grade.findMany({
-      orderBy: { level: 'asc' },
+      orderBy: { createdAt: 'asc' },
       include: { _count: { select: { classes: true } } },
     });
     res.json({ success: true, grades });
@@ -13,9 +13,9 @@ const getAllGrades = async (req, res, next) => {
 
 const createGrade = async (req, res, next) => {
   try {
-    const { name, type, level } = req.body;
+    const { name, type } = req.body;
     const grade = await prisma.grade.create({
-      data: { name, type: type || 'PHYSICAL', level: level ? Number(level) : 0 },
+      data: { name, type: type || 'PHYSICAL' },
     });
     res.status(201).json({ success: true, grade });
   } catch (error) {
@@ -41,11 +41,10 @@ const getClassesByGrade = async (req, res, next) => {
 // ─── UPDATE GRADE ───
 const updateGrade = async (req, res, next) => {
   try {
-    const { name, type, level } = req.body;
+    const { name, type } = req.body;
     const data = {};
     if (name) data.name = name;
     if (type) data.type = type;
-    if (level !== undefined) data.level = Number(level);
     const grade = await prisma.grade.update({
       where: { id: req.params.id },
       data,
@@ -71,7 +70,7 @@ const getAllClasses = async (req, res, next) => {
         teacher: { select: { id: true, name: true } },
         _count: { select: { students: true } },
       },
-      orderBy: [{ grade: { level: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ grade: { createdAt: 'asc' } }, { name: 'asc' }],
     });
     res.json({ success: true, classes });
   } catch (error) { next(error); }

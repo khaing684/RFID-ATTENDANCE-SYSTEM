@@ -7,38 +7,54 @@ datasource db {
 }
 
 // ============================================
-// GRADE - အတန်း (Grade-10, Grade-9)
+// ACADEMIC YEAR - ပညာသင်နှစ် (2025-2026)
 // ============================================
-model Grade {
+model AcademicYear {
   id        String   @id @default(uuid())
-  name      String   // "Grade-10"
-  type      String   @default("PHYSICAL") // ONLINE | PHYSICAL
-  level     Int      @default(0)          // sorting အတွက် (9, 10, 11)
-  classes   Class[]
+  year      String   @unique // "2025-2026"
+  isCurrent Boolean  @default(false)
+  startDate DateTime
+  endDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  enrollments Enrollment[]
 
-  @@unique([name, type])  // "Grade-10" + "ONLINE" = unique
-  @@map("grades")
+  @@map("academic_years")
 }
 
 // ============================================
-// CLASS - အခန်း (Section-A, Section-B)
+// GRADE LEVEL - အတန်း (Grade-10, Grade-11)
 // ============================================
-model Class {
-  id        String   @id @default(uuid())
-  name      String   // "Section-A"
-  gradeId   String
-  grade     Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  teacherId String?  // အတန်းပိုင်ဆရာ (User ID)
-  teacher   User?    @relation("ClassTeacher", fields: [teacherId], references: [id])
-  students  User[]   @relation("StudentClass")
-  timetables Timetable[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model GradeLevel {
+  id        String    @id @default(uuid())
+  name      String    // "Grade-10"
+  level     Int       @default(0) // 10, 11, 12
+  sections  Section[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  @@unique([name, gradeId])
-  @@map("classes")
+  @@unique([name])
+  @@map("grade_levels")
+}
+
+// ============================================
+// SECTION - အခန်း (Section-A, Section-B)
+// ============================================
+model Section {
+  id           String   @id @default(uuid())
+  name         String   // "Section-A"
+  gradeLevelId String
+  gradeLevel   GradeLevel @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
+  teacherId    String?  // အတန်းပိုင်ဆရာ
+  teacher      User?    @relation("SectionTeacher", fields: [teacherId], references: [id])
+  room         String?  // စာသင်ခန်း (Rm-201)
+  capacity     Int      @default(40) // ကျောင်းသားဦးရေကန့်သတ်ချက်
+  schedules    Schedule[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([name, gradeLevelId])
+  @@map("sections")
 }
 
 // ============================================
@@ -53,20 +69,18 @@ model User {
   phone       String?
   avatar      String?
   isActive    Boolean  @default(true)
-  classId     String?
-  class       Class?   @relation("StudentClass", fields: [classId], references:[id])
   
   lastLoginAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  teacherClasses      Class[]  @relation("ClassTeacher")
+  teacherSections    Section[]  @relation("SectionTeacher")
+  enrollments        Enrollment[]
   assignedTags  Tag[]     @relation("AssignedTo")
   scanLogs      ScanLog[]
   createdTags   Tag[]     @relation("CreatedBy")
   createdDevices Device[] @relation("DeviceCreatedBy")
 
   @@map("users")
-  @@index([classId])
 }
 
 enum Role {
@@ -76,28 +90,49 @@ enum Role {
 }
 
 // ============================================
-// SUBJECT - ဘာသာရပ် (မြန်မာ, အင်္ဂလိပ်, သင်္ချာ)
+// ENROLLMENT - ကျောင်းသားစာရင်း (Student → Section)
 // ============================================
-model Subject {
-  id              String @id @default(uuid())
-  name            String 
-  code            String @unique
-  color           String @default("#1677ff")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  timetables      Timetable[]
+model Enrollment {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sectionId      String
+  section        Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  enrolledAt     DateTime     @default(now())
 
-  @@map("subjects")
-
+  @@unique([studentId, sectionId, academicYearId])
+  @@index([sectionId])
+  @@index([academicYearId])
+  @@map("enrollments")
 }
 
 // ============================================
-// TIMETABLE - အချိန်ဇယား
+// SUBJECT - ဘာသာရပ် (မြန်မာ, အင်္ဂလိပ်, သင်္ချာ)
 // ============================================
-model Timetable {
+model Subject {
+  id        String     @id @default(uuid())
+  name      String
+  code      String     @unique
+  color     String     @default("#1677ff")
+  credits   Int        @default(1)  // ဘာသာရပ်ခရက်ဒစ်
+  teacherId String?    // တာဝန်ခံဆရာ
+  teacher   User?      @relation("SubjectTeacher", fields: [teacherId], references: [id])
+  schedules Schedule[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("subjects")
+}
+
+// ============================================
+// SCHEDULE - အချိန်ဇယား (Timetable)
+// ============================================
+model Schedule {
   id        String   @id @default(uuid())
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   subjectId String
   subject   Subject  @relation(fields: [subjectId], references: [id])
   dayOfWeek Int      // 0=Sun, 1=Mon ... 6=Sat
@@ -106,9 +141,9 @@ model Timetable {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([classId, dayOfWeek, startTime])
-  @@index([classId, dayOfWeek])
-  @@map("timetables")
+  @@unique([sectionId, dayOfWeek, startTime])
+  @@index([sectionId, dayOfWeek])
+  @@map("schedules")
 }
 
 
@@ -220,6 +255,23 @@ enum ScanType {
   CHECK_OUT
   INVENTORY
   LOCATE
+}
+
+// ============================================
+// HOLIDAY - အားလပ်ရက်ပြက္ခဒိန်
+// ============================================
+model Holiday {
+  id          String   @id @default(uuid())
+  date        DateTime @unique       // 2026-01-04 (ရက်စွဲ)
+  name        String                 // "အာဇာနည်နေ့"
+  type        String   @default("NATIONAL") // NATIONAL | SCHOOL | EXAM
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([type])
+  @@map("holidays")
 }
 
 // ============================================

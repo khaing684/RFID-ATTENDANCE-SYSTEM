@@ -30,7 +30,7 @@ export default function Timetable() {
   const fetchInitial = async () => {
     try {
       const [cRes, sRes] = await Promise.all([
-        api.get("/classes"),
+        api.get("/sections"),
         api.get("/subjects"),
       ]);
       setClasses(cRes.data.classes || []);
@@ -46,7 +46,7 @@ export default function Timetable() {
   const fetchTimetable = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/timetable/${selectedClass}`);
+      const { data } = await api.get(`/schedules/${selectedClass}`);
       setEntries(data.entries || []);
     } catch { setEntries([]); }
     finally { setLoading(false); }
@@ -81,18 +81,18 @@ export default function Timetable() {
       };
       let res;
       if (editing) {
-        res = await api.patch(`/timetable/${editing.id}`, payload);
-        message.success("Timetable updated");
+        res = await api.patch(`/schedules/${editing.id}`, payload);
+        message.success("Schedule updated");
       } else {
-        res = await api.post("/timetable", payload);
-        message.success("Timetable entry added");
+        res = await api.post("/schedules", payload);
+        message.success("Schedule entry added");
       }
       entryForm.resetFields();
       setEntryModal(false);
       setEditing(null);
       // Refresh timetable entries from API
       const classId = selectedClass;
-      const { data } = await api.get(`/timetable/${classId}`);
+      const { data } = await api.get(`/schedules/${classId}`);
       setEntries(data.entries || []);
     } catch (err) { if (err.response) message.error(err.response.data?.message || "Error"); }
   };
@@ -184,7 +184,7 @@ export default function Timetable() {
                 if (val) localStorage.setItem(STORAGE_KEY, val);
                 else localStorage.removeItem(STORAGE_KEY);
               }}
-              options={classes.map((c) => ({ value: c.id, label: `${c.grade?.name} (${c.grade?.type}) - ${c.name}` }))} />
+              options={classes.map((c) => ({ value: c.id, label: `${c.gradeLevel?.name} - ${c.name}` }))} />
             {selectedClass && (
               <Button icon={<PlusOutlined />} onClick={() => openEntryModal()}>Add Entry</Button>
             )}

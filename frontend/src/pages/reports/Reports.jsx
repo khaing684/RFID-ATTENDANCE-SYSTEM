@@ -11,11 +11,15 @@ import {
   Select,
   message,
   Statistic,
+  Space,
 } from "antd";
+
+const { Text } = Typography;
 import {
   DownloadOutlined,
   BarChartOutlined,
   PieChartOutlined,
+  CalendarOutlined,
 } from "@ant-design/icons";
 import api from "../../config/api";
 
@@ -27,6 +31,7 @@ export default function Reports() {
   const [reportType, setReportType] = useState("daily");
   const [data, setData] = useState([]);
   const [stats, setStats] = useState(null);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchReport = async () => {
@@ -40,6 +45,7 @@ export default function Reports() {
       const res = await api.get("/scanlogs/report", { params });
       setData(res.data.logs || []);
       setStats(res.data.stats);
+      setHolidays(res.data.holidays || []);
     } catch {
       message.error("No Report");
     } finally {
@@ -118,7 +124,30 @@ export default function Reports() {
           </Card>
         </Col>
       </Row>
-      
+      {/* Holiday Alert - Report ထဲက အားလပ်ရက်များ */}
+      {holidays.length > 0 && (
+        <Row style={{ padding: "0 10px 12px" }}>
+          <Col span={24}>
+            <Card size="small" style={{ background: "#fff7e6", border: "1px solid #ffd591" }}>
+              <Space>
+                <CalendarOutlined style={{ color: "#fa8c16", fontSize: 18 }} />
+                <Text strong style={{ color: "#d46b08" }}>
+                  အားလပ်ရက်များ ({holidays.length} ရက်) — Report ထဲမှာ auto-skip လုပ်ထားပါသည်
+                </Text>
+              </Space>
+              <div style={{ marginTop: 8 }}>
+                {holidays.map((h, i) => (
+                  <Tag key={i} color={h.type === "NATIONAL" ? "red" : h.type === "SCHOOL" ? "orange" : "purple"} style={{ marginBottom: 4 }}>
+                    {h.date} — {h.name}
+                  </Tag>
+                ))}
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      {/* Report Table */}      
       <Row gutter={[12, 12]} align="middle" style={{ padding: "12px 10px"}}>
           <Col>
             <Select
