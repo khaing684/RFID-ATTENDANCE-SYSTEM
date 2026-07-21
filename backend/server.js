@@ -46,6 +46,9 @@ app.use('/api/tags', require('./routes/tags'));
 app.use('/api/devices', require('./routes/devices'));
 app.use('/api/scanlogs', require('./routes/scanLogs'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api', require('./routes/classes'));
+app.use('/api', require ('./routes/timetable'));
 
 // ---- Error Handling ----
 app.use(notFound);

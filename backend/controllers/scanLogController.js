@@ -70,4 +70,14 @@ const getStats = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, getRecent, getByTag, getStats };
+// GET /api/scanlogs/report
+const getReport = async (req, res, next) => {
+  try {
+    const result = await scanLogService.getReport(req.query);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAll, getById, create, getRecent, getByTag, getStats, getReport };

@@ -7,6 +7,8 @@ import {
   DashboardOutlined, TagOutlined, LaptopOutlined,
   ScanOutlined, UserOutlined, LogoutOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined,
+  BarChartOutlined, TeamOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout, getMe } from '../redux/slices/authSlice';
@@ -19,8 +21,7 @@ const menuItems = [
   { key: '/tags', icon: <TagOutlined />, label: 'Tags' },
   { key: '/devices', icon: <LaptopOutlined />, label: 'Devices' },
   { key: '/scanlogs', icon: <ScanOutlined />, label: 'Scan Logs' },
-  { key: '/users', icon: <UserOutlined />, label: 'Users' },
-  { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
+  { key: '/users', icon: <UserOutlined />, label: 'Users' },  { key: '/classes', icon: <TeamOutlined />, label: 'Classes' },  { key: '/timetable', icon: <ClockCircleOutlined />, label: 'Timetable' },  { key: '/reports', icon: <BarChartOutlined />, label: 'Reports' },  { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
 ];
 
 export default function MainLayout() {

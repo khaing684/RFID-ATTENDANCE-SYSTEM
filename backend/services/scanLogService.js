@@ -5,6 +5,54 @@ const prisma = require('../config/db');
  * တက်ရောက်မှုမှတ်တမ်း - System ရဲ့ အသက်သွေးကြော
  */
 
+// ─── Helper: Settings ဖတ်ပြီး attendance status တွက် ───
+let settingsCache = null;
+let cacheTime = 0;
+const CACHE_TTL = 60000; // 1 မိနစ် cache
+
+const getSettings = async () => {
+  const now = Date.now();
+  if (settingsCache && now - cacheTime < CACHE_TTL) return settingsCache;
+  
+  const settings = await prisma.setting.findMany();
+  const config = {};
+  settings.forEach((s) => { config[s.key] = s.value; });
+  
+  settingsCache = {
+    schoolStart: config.school_start_time || '08:00',
+    schoolEnd: config.school_end_time || '16:00',
+    lateThreshold: parseInt(config.late_threshold_minutes) || 30,
+  };
+  cacheTime = now;
+  return settingsCache;
+};
+
+const computeAttendanceStatus = (scanType, scannedAt, config) => {
+  const date = new Date(scannedAt);
+  const scanMinutes = date.getHours() * 60 + date.getMinutes();
+
+  const [startH, startM] = config.schoolStart.split(':').map(Number);
+  const [endH, endM] = config.schoolEnd.split(':').map(Number);
+  const lateCutoff = startH * 60 + startM + config.lateThreshold;
+  const endCutoff = endH * 60 + endM;
+
+  if (scanType === 'CHECK_IN') {
+    return scanMinutes <= lateCutoff ? 'ON_TIME' : 'LATE';
+  }
+  if (scanType === 'CHECK_OUT') {
+    return scanMinutes < endCutoff ? 'EARLY_LEAVE' : 'FULL_DAY';
+  }
+  return null;
+};
+
+const enrichWithAttendance = async (logs) => {
+  const config = await getSettings();
+  return logs.map((log) => ({
+    ...log,
+    attendanceStatus: computeAttendanceStatus(log.scanType, log.scannedAt, config),
+  }));
+};
+
 // GET - Scan အားလုံး
 const getAll = async (query) => {
   const page = parseInt(query.page) || 1;
@@ -40,8 +88,10 @@ const getAll = async (query) => {
     prisma.scanLog.count({ where }),
   ]);
 
+  const enrichedLogs = await enrichWithAttendance(logs);
+
   return {
-    logs,
+    logs: enrichedLogs,
     pagination: {
       page, limit, total,
       totalPages: Math.ceil(total / limit),
@@ -111,7 +161,7 @@ const create = async (data, userId) => {
 
 // GET - နောက်ဆုံး scan 50 ခု
 const getRecent = async () => {
-  return prisma.scanLog.findMany({
+  const logs = await prisma.scanLog.findMany({
     take: 50,
     orderBy: { scannedAt: 'desc' },
     include: {
@@ -120,6 +170,7 @@ const getRecent = async () => {
       user: { select: { name: true, role: true } },
     },
   });
+  return enrichWithAttendance(logs);
 };
 
 // GET - Tag တစ်ခုရဲ့ scan history
@@ -145,7 +196,8 @@ const getByTag = async (tagId, query) => {
     prisma.scanLog.count({ where }),
   ]);
 
-  return { logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  const enrichedLogs = await enrichWithAttendance(logs);
+  return { logs: enrichedLogs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 };
 
 // GET - နေ့စဉ်/လစဉ် စာရင်းအင်း
@@ -158,6 +210,16 @@ const getStats = async (query) => {
     if (startDate) where.scannedAt.gte = new Date(startDate);
     if (endDate) where.scannedAt.lte = new Date(endDate);
   }
+
+  // နောက်ကျ/စောထွက် အရေအတွက်တွက်ဖို့ logs အကုန်ယူ
+  const allLogs = await prisma.scanLog.findMany({
+    where,
+    select: { id: true, scanType: true, scannedAt: true },
+  });
+
+  const enrichedAll = await enrichWithAttendance(allLogs);
+  const lateCount = enrichedAll.filter((l) => l.attendanceStatus === 'LATE').length;
+  const earlyLeaveCount = enrichedAll.filter((l) => l.attendanceStatus === 'EARLY_LEAVE').length;
 
   const [total, checkIns, checkOuts, recentLogs] = await Promise.all([
     prisma.scanLog.count({ where }),
@@ -174,7 +236,34 @@ const getStats = async (query) => {
     }),
   ]);
 
-  return { total, checkIns, checkOuts, recentLogs };
+  const enrichedRecent = await enrichWithAttendance(recentLogs);
+  return { total, checkIns, checkOuts, late: lateCount, earlyLeave: earlyLeaveCount, recentLogs: enrichedRecent };
 };
 
-module.exports = { getAll, getById, create, getRecent, getByTag, getStats };
+// GET - Report with date range
+const getReport = async (query) => {
+  const { startDate, endDate } = query;
+  const where = {};
+  if (startDate) where.scannedAt = { ...where.scannedAt, gte: new Date(startDate) };
+  if (endDate) where.scannedAt = { ...where.scannedAt, lte: new Date(endDate) };
+
+  const [logs, total, checkIns, checkOuts] = await Promise.all([
+    prisma.scanLog.findMany({
+      where,
+      orderBy: { scannedAt: 'desc' },
+      take: 200,
+      include: {
+        user: { select: { name: true } },
+        tag: { select: { rfidCode: true } },
+      },
+    }),
+    prisma.scanLog.count({ where }),
+    prisma.scanLog.count({ where: { ...where, scanType: 'CHECK_IN' } }),
+    prisma.scanLog.count({ where: { ...where, scanType: 'CHECK_OUT' } }),
+  ]);
+
+  const enrichedLogs = await enrichWithAttendance(logs);
+  return { logs: enrichedLogs, stats: { total, checkIns, checkOuts } };
+};
+
+module.exports = { getAll, getById, create, getRecent, getByTag, getStats, getReport, enrichWithAttendance, getSettings };

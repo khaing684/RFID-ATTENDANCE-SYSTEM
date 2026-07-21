@@ -27,7 +27,7 @@ const getAll = async (req, res, next) => {
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, name: true, email: true, role: true,
-          phone: true, isActive: true, lastLoginAt: true,
+          phone: true, avatar: true, isActive: true, lastLoginAt: true,
           createdAt: true,
         },
       }),
@@ -55,7 +55,7 @@ const getById = async (req, res, next) => {
       where: { id: req.params.id },
       select: {
         id: true, name: true, email: true, role: true,
-        phone: true, isActive: true, lastLoginAt: true,
+        phone: true, avatar: true, isActive: true, lastLoginAt: true,
         createdAt: true, updatedAt: true,
       },
     });
@@ -77,7 +77,7 @@ const getById = async (req, res, next) => {
  */
 const create = async (req, res, next) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, avatar } = req.body;
 
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) {
@@ -87,9 +87,9 @@ const create = async (req, res, next) => {
     const hashedPassword = await hashPassword(password || 'password123');
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role: role || 'STUDENT', phone },
+      data: { name, email, password: hashedPassword, role: role || 'STUDENT', phone, avatar },
       select: {
-        id: true, name: true, email: true, role: true, phone: true,
+        id: true, name: true, email: true, role: true, phone: true, avatar: true,
         isActive: true, createdAt: true,
       },
     });
@@ -107,7 +107,7 @@ const create = async (req, res, next) => {
  */
 const update = async (req, res, next) => {
   try {
-    const { name, email, password, role, phone, isActive } = req.body;
+    const { name, email, password, role, phone, isActive, avatar } = req.body;
     const data = {};
 
     if (name) data.name = name;
@@ -115,13 +115,14 @@ const update = async (req, res, next) => {
     if (role) data.role = role;
     if (phone !== undefined) data.phone = phone;
     if (isActive !== undefined) data.isActive = isActive;
+    if (avatar !== undefined) data.avatar = avatar;
     if (password) data.password = await hashPassword(password);
 
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data,
       select: {
-        id: true, name: true, email: true, role: true, phone: true,
+        id: true, name: true, email: true, role: true, phone: true, avatar: true,
         isActive: true, updatedAt: true,
       },
     });

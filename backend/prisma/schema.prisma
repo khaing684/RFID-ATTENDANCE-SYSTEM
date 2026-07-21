@@ -7,6 +7,41 @@ datasource db {
 }
 
 // ============================================
+// GRADE - အတန်း (Grade-10, Grade-9)
+// ============================================
+model Grade {
+  id        String   @id @default(uuid())
+  name      String   // "Grade-10"
+  type      String   @default("PHYSICAL") // ONLINE | PHYSICAL
+  level     Int      @default(0)          // sorting အတွက် (9, 10, 11)
+  classes   Class[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, type])  // "Grade-10" + "ONLINE" = unique
+  @@map("grades")
+}
+
+// ============================================
+// CLASS - အခန်း (Section-A, Section-B)
+// ============================================
+model Class {
+  id        String   @id @default(uuid())
+  name      String   // "Section-A"
+  gradeId   String
+  grade     Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  teacherId String?  // အတန်းပိုင်ဆရာ (User ID)
+  teacher   User?    @relation("ClassTeacher", fields: [teacherId], references: [id])
+  students  User[]   @relation("StudentClass")
+  timetables Timetable[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, gradeId])
+  @@map("classes")
+}
+
+// ============================================
 // USER - စနစ်အသုံးပြုသူများ
 // ============================================
 model User {
@@ -18,16 +53,20 @@ model User {
   phone       String?
   avatar      String?
   isActive    Boolean  @default(true)
+  classId     String?
+  class       Class?   @relation("StudentClass", fields: [classId], references:[id])
+  
   lastLoginAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
+  teacherClasses      Class[]  @relation("ClassTeacher")
   assignedTags  Tag[]     @relation("AssignedTo")
   scanLogs      ScanLog[]
   createdTags   Tag[]     @relation("CreatedBy")
   createdDevices Device[] @relation("DeviceCreatedBy")
 
   @@map("users")
+  @@index([classId])
 }
 
 enum Role {
@@ -35,6 +74,43 @@ enum Role {
   TEACHER
   STUDENT
 }
+
+// ============================================
+// SUBJECT - ဘာသာရပ် (မြန်မာ, အင်္ဂလိပ်, သင်္ချာ)
+// ============================================
+model Subject {
+  id              String @id @default(uuid())
+  name            String 
+  code            String @unique
+  color           String @default("#1677ff")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  timetables      Timetable[]
+
+  @@map("subjects")
+
+}
+
+// ============================================
+// TIMETABLE - အချိန်ဇယား
+// ============================================
+model Timetable {
+  id        String   @id @default(uuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  dayOfWeek Int      // 0=Sun, 1=Mon ... 6=Sat
+  startTime String   // "08:00"
+  endTime   String   // "08:45"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, dayOfWeek, startTime])
+  @@index([classId, dayOfWeek])
+  @@map("timetables")
+}
+
 
 // ============================================
 // TAG - RFID Tag များ (ကျောင်းသား/ဆရာ ကတ်ပြား)
@@ -144,4 +220,16 @@ enum ScanType {
   CHECK_OUT
   INVENTORY
   LOCATE
+}
+
+// ============================================
+// SETTING - စနစ် သတ်မှတ်ချက်များ (key-value)
+// ============================================
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
 }

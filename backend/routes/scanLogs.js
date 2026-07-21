@@ -8,12 +8,14 @@ const {
   getRecent,
   getByTag,
   getStats,
+  getReport,
 } = require('../controllers/scanLogController');
 
 const { protect } = require('../middleware/auth');
 
 // ⚠️ Static routes အရင်ထား
 router.get('/recent', protect, getRecent);
+router.get('/report', protect, getReport);
 router.get('/stats', protect, getStats);
 router.get('/by-tag/:tagId', protect, getByTag);
 

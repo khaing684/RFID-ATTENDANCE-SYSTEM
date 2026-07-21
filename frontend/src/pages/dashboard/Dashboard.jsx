@@ -46,10 +46,18 @@ export default function Dashboard() {
     INVENTORY: { color: "blue", text: "Inventory" },
   };
 
+  const attendanceStatusMap = {
+    ON_TIME: { color: "green", text: "On Time ✅" },
+    LATE: { color: "orange", text: "Late ⚠️" },
+    EARLY_LEAVE: { color: "red", text: "Early Leave 🚩" },
+    FULL_DAY: { color: "blue", text: "Full Day 📋" },
+  };
+
   const recentColumns = [
     {
       title: "User",
       key: "user",
+      align: "center",
       render: (_, r) => {
         const name = r.user?.name || "-";
         const role = r.user?.role;
@@ -58,21 +66,32 @@ export default function Dashboard() {
           : name;
       },
     },
-    { title: "RFID Code", dataIndex: ["tag", "rfidCode"], key: "rfid" },
+    { title: "RFID Code", dataIndex: ["tag", "rfidCode"], key: "rfid" ,  align: "center"},
     {
       title: "Type",
       dataIndex: "scanType",
       key: "type",
+      align: "center",
       render: (type) => {
         const info = scanTypeMap[type] || { color: "default", text: type };
         return <Tag color={info.color}>{info.text}</Tag>;
       },
     },
-    { title: "Device", dataIndex: ["device", "name"], key: "device" },
+    {
+      title: "Attendance",
+      key: "attendance",
+      align: "center",
+      render: (_, r) => {
+        const s = attendanceStatusMap[r.attendanceStatus];
+        return s ? <Tag color={s.color}>{s.text}</Tag> : "-";
+      },
+    },
+    { title: "Device", dataIndex: ["device", "name"], key: "device",  align: "center" },
     {
       title: "Date",
       dataIndex: "scannedAt",
       key: "time",
+      align: "center",
       render: (d) => (d ? new Date(d).toLocaleString("my-MM") : "-"),
     },
   ];
@@ -173,7 +192,28 @@ export default function Dashboard() {
                 />
               </Card>
             </Col>
+            <Col xs={12} sm={8} md={6}>
+              <Card style={{ height: "100%" }}>
+                <Statistic
+                  title="Late ⚠️"
+                  value={stats?.todayLate ?? 0}
+                  prefix={<LoginOutlined />}
+                  valueStyle={{ color: "#faad14", fontSize: 24 }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8} md={6}>
+              <Card style={{ height: "100%" }}>
+                <Statistic
+                  title="Early Leave 🚩"
+                  value={stats?.todayEarlyLeave ?? 0}
+                  prefix={<LogoutOutlined />}
+                  valueStyle={{ color: "#ff4d4f", fontSize: 24 }}
+                />
+              </Card>
+            </Col>
           </Row>
+
         </>
       )}
 

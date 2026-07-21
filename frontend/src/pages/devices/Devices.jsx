@@ -139,16 +139,18 @@ export default function Devices() {
   };
 
   const columns = [
-    { title: "Name", dataIndex: "name", width: 150 },
+    { title: "Name", dataIndex: "name", align: "center",width: 150 },
     {
       title: "Code",
       dataIndex: "deviceCode",
+      align: "center",
       width: 130,
       render: (t) => <Tag color="blue">{t}</Tag>,
     },
     {
       title: "Type",
       dataIndex: "deviceType",
+      align: "center",
       width: 100,
       render: (v) => (
         <Tag>
@@ -159,18 +161,21 @@ export default function Devices() {
     {
       title: "Location",
       dataIndex: "location",
+      align: "center",
       width: 120,
       render: (v) => v || "-",
     },
     {
       title: "IP",
       dataIndex: "ipAddress",
+      align: "center",
       width: 140,
       render: (v) => (v ? <Tag>{v}</Tag> : "-"),
     },
     {
       title: "Status",
       dataIndex: "status",
+      align: "center",
       width: 110,
       render: (v) => (
         <Tag color={statusMap[v]?.color}>{statusMap[v]?.text || v}</Tag>
@@ -179,40 +184,45 @@ export default function Devices() {
     {
       title: "Scan Number",
       key: "scans",
+      align: "center",
       width: 120,
       render: (_, r) => r._count?.scanLogs || 0,
     },
     {
       title: "Date",
       dataIndex: "lastSeenAt",
-      width: 140,
+      align: "center",
+      width: 130,
       render: (v) => (v ? new Date(v).toLocaleString("my-MM") : "မရှိ"),
     },
     {
-      title: "",
+      title: "Action",
       key: "actions",
+      align: "center",
       width: 170,
       render: (_, r) => (
         <Space>
           <Tooltip title="Heartbeat">
             <Button
-              size="small"
+              size="medium"
               icon={<WifiOutlined />}
               onClick={() => handleHeartbeat(r.id)}
-            />
+            > HeartBeat
+              </Button>
           </Tooltip>
           <Button
-            size="small"
+            size="medium"
             icon={<EditOutlined />}
             onClick={() => handleOpenModal("edit", r)}
-          />
+          > Edit
+            </Button>
           <Popconfirm
             title="Are u sure delete？"
             onConfirm={() => handleDelete(r.id)}
             okText="Yes"
             cancelText="No"
           >
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="medium" danger icon={<DeleteOutlined />} > Delete </Button>
           </Popconfirm>
         </Space>
       ),
@@ -221,97 +231,49 @@ export default function Devices() {
 
   return (
     <>
-      <Card style={{ marginBottom: 16 }}>
-        <Row justify="end" align="middle">
-         <Col>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => handleOpenModal("create")}
-            >
-              Create New Device
-            </Button>
-          </Col>
-        </Row>
-        <Row gutter={[12, 12]} align="middle">
-          <Col>
-            <Input
-              placeholder="Search by Code"
-              prefix={<SearchOutlined />}
-              allowClear
-              style={{ width: 200 }}
-              value={filters.search}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, search: e.target.value }))
-              }
-            />
-          </Col>
-          <Col>
-            <Select
-              placeholder="State"
-              allowClear
-              style={{ width: 130 }}
-              value={filters.deviceType || undefined}
-              onChange={(v) =>
-                setFilters((f) => ({ ...f, deviceType: v || "" }))
-              }
-              options={[
-                { value: "HANDHELD", label: "Handheld" },
-                { value: "FIXED", label: "Fixed" },
-                { value: "USB", label: "USB" },
-              ]}
-            />
-          </Col>
-          <Col>
-            <Select
-              placeholder="Status"
-              allowClear
-              style={{ width: 130 }}
-              value={filters.status || undefined}
-              onChange={(v) => setFilters((f) => ({ ...f, status: v || "" }))}
-              options={[
-                { value: "ONLINE", label: "Online" },
-                { value: "OFFLINE", label: "Offline" },
-                { value: "MAINTENANCE", label: "Maintenance" },
-                { value: "ERROR", label: "Error" },
-              ]}
-            />
-          </Col>
-          <Col>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() =>
-                setFilters({ status: "", deviceType: "", search: "" })
-              }
-            >
-              Clear
-            </Button>
-          </Col>
-        </Row>
+      <Row justify="space-between" align="middle" style={{ padding: "12px 6px" }}>
+        <Col>
+          <Space wrap>
+            <Input placeholder="Search by Code" prefix={<SearchOutlined />} allowClear style={{ width: 200 }} value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} />
+            <Select placeholder="State" allowClear style={{ width: 130 }} value={filters.deviceType || undefined} onChange={(v) => setFilters((f) => ({ ...f, deviceType: v || "" }))} options={[{ value: "HANDHELD", label: "Handheld" }, { value: "FIXED", label: "Fixed" }, { value: "USB", label: "USB" }]} />
+            <Select placeholder="Status" allowClear style={{ width: 130 }} value={filters.status || undefined} onChange={(v) => setFilters((f) => ({ ...f, status: v || "" }))} options={[{ value: "ONLINE", label: "Online" }, { value: "OFFLINE", label: "Offline" }, { value: "MAINTENANCE", label: "Maintenance" }, { value: "ERROR", label: "Error" }]} />
+            <Button icon={<ReloadOutlined />} onClick={() => setFilters({ status: "", deviceType: "", search: "" })}>Clear</Button>
+          </Space>
+        </Col>
+        <Col>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal("create")}>
+            Create New Device
+          </Button>
+        </Col>
+      </Row>
+
         <Table
+          bordered
           rowKey="id"
           columns={columns}
           dataSource={devices}
           loading={loading}
           scroll={{ x: 1100 }}
+          size="small"
           pagination={{
             current: pagination.page,
             pageSize: pagination.limit,
             total: pagination.total,
             showSizeChanger: true,
-            showTotal: (t) => `စုစုပေါင်း ${t} ခု`,
+            showTotal: (t) => `Total  (${t}) `,
             onChange: (p, s) =>
               setPagination((prev) => ({ ...prev, page: p, limit: s })),
           }}
+          style={{padding: "12px 6px"}}
         />
-      </Card>
+     
       <Modal
         title={modalMode === "create" ? "Create Device Form" : "Update Device Form"}
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={handleClose}
         okText={modalMode === "create" ? "Create" : "Update"}
-        cancelText="မလုပ်တော့ပါ"
+        cancelText="Cancel"
         destroyOnClose
         width={560}
       >
@@ -320,8 +282,8 @@ export default function Devices() {
             <Col span={12}>
               <Form.Item
                 name="name"
-                label="အမည်"
-                rules={[{ required: true, message: "ထည့်ပါ" }]}
+                label="Name"
+                rules={[{ required: true, message: "Enter Name" }]}
               >
                 <Input />
               </Form.Item>
@@ -330,7 +292,7 @@ export default function Devices() {
               <Form.Item
                 name="deviceCode"
                 label="Device Code"
-                rules={[{ required: true, message: "ထည့်ပါ" }]}
+                rules={[{ required: true, message: "Enter Device Code" }]}
               >
                 <Input />
               </Form.Item>
@@ -340,7 +302,7 @@ export default function Devices() {
             <Col span={12}>
               <Form.Item
                 name="deviceType"
-                label="အမျိုးအစား"
+                label="Type"
                 initialValue="HANDHELD"
               >
                 <Select
@@ -353,7 +315,7 @@ export default function Devices() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="status" label="အခြေအနေ" initialValue="OFFLINE">
+              <Form.Item name="status" label="Status" initialValue="OFFLINE">
                 <Select
                   options={[
                     { value: "ONLINE", label: "Online" },
@@ -367,8 +329,8 @@ export default function Devices() {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="location" label="တည်နေရာ">
-                <Input placeholder="ဥပမာ - အဆောင် A" />
+              <Form.Item name="location" label="Location">
+                <Input placeholder="Eg- Hostel A" />
               </Form.Item>
             </Col>
             <Col span={12}>

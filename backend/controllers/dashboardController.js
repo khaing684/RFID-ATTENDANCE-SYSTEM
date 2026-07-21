@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { enrichWithAttendance, getSettings } = require('../services/scanLogService');
 
 /**
  * @desc    Dashboard - Role အလိုက် ပြောင်းလဲပြမယ်
@@ -24,6 +25,7 @@ const getDashboard = async (req, res, next) => {
         todayCheckIns,
         todayCheckOuts,
         recentLogs,
+        todayAllLogs,
       ] = await Promise.all([
         prisma.tag.count(),
         prisma.tag.count({ where: { status: 'ACTIVE' } }),
@@ -42,7 +44,33 @@ const getDashboard = async (req, res, next) => {
             device: { select: { id: true, name: true } },
           },
         }),
+        // ဒီနေ့ scan အကုန်ယူပြီး attendance status တွက်
+        prisma.scanLog.findMany({
+          where: { scannedAt: { gte: today } },
+          select: { id: true, scanType: true, scannedAt: true },
+        }),
       ]);
+
+      const enrichedToday = await enrichWithAttendance(todayAllLogs);
+      const todayLate = enrichedToday.filter((l) => l.attendanceStatus === 'LATE').length;
+      const todayEarlyLeave = enrichedToday.filter((l) => l.attendanceStatus === 'EARLY_LEAVE').length;
+      const enrichedRecent = await enrichWithAttendance(recentLogs);
+
+      // ─── Weekly Trend: လွန်ခဲ့တဲ့ ၇ ရက်စာ scan count ───
+      const weeklyTrend = [];
+      for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(today);
+        dayStart.setDate(dayStart.getDate() - i);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        
+        const count = await prisma.scanLog.count({
+          where: { scannedAt: { gte: dayStart, lt: dayEnd } },
+        });
+        
+        const dayName = dayStart.toLocaleDateString('en', { weekday: 'short' });
+        weeklyTrend.push({ date: dayName, count, fullDate: dayStart.toISOString().split('T')[0] });
+      }
 
       return res.json({
         success: true,
@@ -50,8 +78,10 @@ const getDashboard = async (req, res, next) => {
         stats: {
           totalTags, activeTags, totalDevices, onlineDevices,
           totalUsers, todayScans, todayCheckIns, todayCheckOuts,
+          todayLate, todayEarlyLeave,
         },
-        recentLogs,
+        weeklyTrend,
+        recentLogs: enrichedRecent,
       });
     }
 

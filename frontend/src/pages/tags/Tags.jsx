@@ -20,10 +20,10 @@ import {
 import {
   PlusOutlined,
   SearchOutlined,
-  ReloadOutlined,
   EditOutlined,
   DeleteOutlined,
   UserSwitchOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import api from "../../config/api";
 
@@ -251,7 +251,7 @@ export default function Tags() {
             <Input placeholder="Search by RFID Code" prefix={<SearchOutlined />} allowClear style={{ width: 200 }} value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} />
             <Select placeholder="Status" allowClear style={{ width: 130 }} value={filters.tagType || undefined} onChange={(v) => setFilters((f) => ({ ...f, tagType: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "PASSIVE", label: "Passive" }]} />
             <Select placeholder="State" allowClear style={{ width: 130 }} value={filters.status || undefined} onChange={(v) => setFilters((f) => ({ ...f, status: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Inactive" }, { value: "LOST", label: "Lost" }, { value: "DAMAGED", label: "Damage" }]} />
-            <Button icon={<ReloadOutlined />} onClick={() => setFilters({ status: "", tagType: "", search: "" })}> Clear </Button>
+            <Button icon={<ClearOutlined />} onClick={() => setFilters({ status: "", tagType: "", search: "" })}> Clear </Button>
           </Space>
         </Col>
         <Col>
@@ -275,7 +275,7 @@ export default function Tags() {
           pageSize: pagination.limit,
           total: pagination.total,
           showSizeChanger: true,
-          showTotal: (t) => `Total ${t}`,
+          showTotal: (t) => `Total (${t})`,
           onChange: (p, s) =>
             setPagination((prev) => ({ ...prev, page: p, limit: s })),
         }}
