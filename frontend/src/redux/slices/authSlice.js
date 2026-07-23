@@ -59,6 +59,7 @@ export const getMe = createAsyncThunk(
         token: localStorage.getItem('token'),
         loading: false,
         error: null,
+        isInitialized: !localStorage.getItem('token'), // token မရှိရင် init ပြီးသား
 
     },
     reducers: {
@@ -84,6 +85,7 @@ export const getMe = createAsyncThunk(
       state.loading = false;           // API ပြီးပြီ
       state.user = action.payload.user;  // user data သိမ်း
       state.token = action.payload.token; // token သိမ်း
+      state.isInitialized = true;
     });
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;       // API ပြီးပြီ (ဒါပေမယ့် error)
@@ -99,6 +101,7 @@ export const getMe = createAsyncThunk(
       state.loading = false;
       state.user = action.payload.user;
       state.token = action.payload.token;
+      state.isInitialized = true;
     });
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;
@@ -112,12 +115,14 @@ export const getMe = createAsyncThunk(
     builder.addCase(getMe.fulfilled, (state, action) => {
       state.loading = false;
       state.user = action.payload.user;
+      state.isInitialized = true;
     });
     builder.addCase(getMe.rejected, (state) => {
       // token မမှန်ရင် အကုန်ရှင်းပြီး login ပြန်သွားမယ်
       state.loading = false;
       state.user = null;
       state.token = null;
+      state.isInitialized = true;
       localStorage.removeItem('token');
     });
   },

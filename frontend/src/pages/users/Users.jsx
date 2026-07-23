@@ -16,6 +16,9 @@ import {
   Input,
   Upload,
   Avatar,
+  Descriptions,
+  Badge,
+  DatePicker,
 } from "antd";
 import {
   PlusOutlined,
@@ -27,10 +30,12 @@ import {
   UserOutlined,
   MailOutlined,
   PhoneOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
+import dayjs from "dayjs";
 import api from "../../config/api";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -44,6 +49,11 @@ export default function Users() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [editingUser, setEditingUser] = useState(null);
+
+  // Detail Modal
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [form] = Form.useForm();
@@ -58,14 +68,11 @@ export default function Users() {
     });
 
   const fetchClasses = async () => {
-    try{
+    try {
       const { data } = await api.get("/classes");
       setClasses(data.classes || []);
-
-    }catch {
-
-    }
-  }    
+    } catch {}
+  };
 
   const fetchUsers = useCallback(
     async (page = 1) => {
@@ -92,8 +99,8 @@ export default function Users() {
   }, [fetchUsers]);
 
   const roleMap = {
-    ADMIN: { color: "red", text: "Admin" },
-    TEACHER: { color: "blue", text: "Teacher" },
+    ADMIN: { color: "volcano", text: "Admin" },
+    TEACHER: { color: "purple", text: "Teacher" },
     STUDENT: { color: "green", text: "Student" },
   };
 
@@ -107,6 +114,10 @@ export default function Users() {
         email: record.email,
         role: record.role,
         phone: record.phone,
+        dateOfBirth: record.dateOfBirth ? dayjs(record.dateOfBirth) : null,
+        parentName: record.parentName,
+        address: record.address,
+        classId: record.classId || undefined,
         isActive: record.isActive,
       });
       setAvatarPreview(record.avatar || null);
@@ -115,6 +126,11 @@ export default function Users() {
       setAvatarPreview(null);
     }
     setModalOpen(true);
+  };
+
+  const handleOpenDetail = (record) => {
+    setSelectedUser(record);
+    setDetailOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -130,10 +146,13 @@ export default function Users() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      // Convert dayjs dateOfBirth to string
+      if (values.dateOfBirth && dayjs.isDayjs(values.dateOfBirth)) {
+        values.dateOfBirth = values.dateOfBirth.format("YYYY-MM-DD");
+      }
       if (avatarFile) {
         values.avatar = await getBase64(avatarFile);
       } else if (modalMode === "edit") {
-        // Edit mode: keep existing avatar if no new file selected
         if (avatarPreview) values.avatar = avatarPreview;
         else values.avatar = null;
       }
@@ -167,48 +186,75 @@ export default function Users() {
     return false;
   };
 
+  // -- Get class/section name from classId --
+  const getSectionName = (classId) => {
+    if (!classId) return "-";
+    const cls = classes.find((c) => c.id === classId);
+    return cls ? `${cls.grade?.name || ""} - ${cls.name}`.trim() : "-";
+  };
+
+  // -- Essential Columns (Table) --
   const columns = [
-    { title: "Name", dataIndex: "name", width: 150, align: "center" },
-    { title: "Email", dataIndex: "email", width: 200, align: "center" },
     {
-      title: "Role",
+      title: "NAME",
+      dataIndex: "name",
+      width: 180,
+      render: (name, record) => (
+        <Space size={10}>
+          <Avatar
+            size={36}
+            src={record.avatar}
+            icon={<UserOutlined />}
+            style={{ backgroundColor: "#1890ff" }}
+          >
+            {name ? name.charAt(0).toUpperCase() : "U"}
+          </Avatar>
+          <Text strong>{name || "-"}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: "EMAIL",
+      dataIndex: "email",
+      width: 200,
+    },
+    {
+      title: "ROLE",
       dataIndex: "role",
       width: 100,
       align: "center",
       render: (v) => (
-        <Tag color={roleMap[v]?.color}>{roleMap[v]?.text || v}</Tag>
+        <Tag color={roleMap[v]?.color || "default"}>{roleMap[v]?.text || v}</Tag>
       ),
     },
-    { title: "Phone", dataIndex: "phone", width: 130, render: (v) => v || "-" },
     {
-      title: "Status",
+      title: "STATUS",
       dataIndex: "isActive",
       width: 100,
       align: "center",
       render: (v) => (
-        <Tag color={v ? "green" : "red"}>{v ? "Active" : "Inactive"}</Tag>
+        <Badge status={v ? "success" : "error"} text={v ? "Active" : "Inactive"} />
       ),
     },
     {
-      title: "Date",
-      dataIndex: "createdAt",
-      align: "center",
-      width: 140,
-      render: (v) => new Date(v).toLocaleString("en-US"),
-    },
-    {
-      title: "Action",
+      title: "ACTION",
       key: "actions",
       align: "center",
-      width: 120,
+      width: 220,
       render: (_, r) => (
-        <Space>
+        <Space size={6}>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleOpenDetail(r)}
+          >
+            Detail
+          </Button>
           <Button
             size="small"
             icon={<EditOutlined />}
             onClick={() => handleOpenModal("edit", r)}
           >
-            {" "}
             Edit
           </Button>
           <Popconfirm
@@ -218,8 +264,7 @@ export default function Users() {
             onConfirm={() => handleDelete(r.id)}
           >
             <Button size="small" danger icon={<DeleteOutlined />}>
-              {" "}
-              Delete{" "}
+              Delete
             </Button>
           </Popconfirm>
         </Space>
@@ -228,14 +273,11 @@ export default function Users() {
   ];
 
   return (
-    <>
-      <Row
-        justify="space-between"
-        align="middle"
-        style={{ padding: "12px 12px" }}
-      >
+    <div style={{ padding: 16 }}>
+      {/* Header */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Space>
+          <Space wrap>
             <Input
               placeholder="Search by Name/Email"
               prefix={<SearchOutlined />}
@@ -279,12 +321,14 @@ export default function Users() {
           </Button>
         </Col>
       </Row>
+
+      {/* Table */}
       <Table
         rowKey="id"
         columns={columns}
         dataSource={users}
         loading={loading}
-        size="small"
+        size="middle"
         pagination={{
           current: pagination.page,
           total: pagination.total,
@@ -293,10 +337,90 @@ export default function Users() {
           showTotal: (total) => `total (${total})`,
         }}
         locale={{ emptyText: "No User Data" }}
-        style={{ padding: "4px 10px" }}
       />
 
-      {/* Modern Pop-up Modal Form */}
+      {/* Detail Modal */}
+      <Modal
+        title={
+          <Text strong style={{ fontSize: 18 }}>
+            User Account Details
+          </Text>
+        }
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
+        footer={
+          <Button onClick={() => setDetailOpen(false)}>Close</Button>
+        }
+        centered
+        width={500}
+        destroyOnClose
+      >
+        {selectedUser && (
+          <div style={{ paddingTop: 16 }}>
+            {/* Avatar + Name + Role */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
+              <Avatar
+                size={80}
+                src={selectedUser.avatar}
+                icon={<UserOutlined />}
+                style={{ backgroundColor: "#1890ff", marginBottom: 12 }}
+              >
+                {selectedUser.name
+                  ? selectedUser.name.charAt(0).toUpperCase()
+                  : "U"}
+              </Avatar>
+              <Title level={4} style={{ margin: 0 }}>
+                {selectedUser.name}
+              </Title>
+              <Tag
+                color={roleMap[selectedUser.role]?.color || "default"}
+                style={{ marginTop: 6, borderRadius: 12, fontWeight: 600 }}
+              >
+                {roleMap[selectedUser.role]?.text || selectedUser.role}
+              </Tag>
+            </div>
+
+            {/* Detail Info */}
+            <Descriptions bordered column={1} size="small">
+              <Descriptions.Item label="Email">
+                {selectedUser.email || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Phone">
+                {selectedUser.phone || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Date of Birth">
+                {selectedUser.dateOfBirth
+                  ? dayjs(selectedUser.dateOfBirth).format("DD MMM YYYY")
+                  : "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Parent Name">
+                {selectedUser.parentName || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Address">
+                {selectedUser.address || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Section">
+                {getSectionName(selectedUser.classId)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Badge
+                  status={selectedUser.isActive ? "success" : "error"}
+                  text={selectedUser.isActive ? "Active Account" : "Inactive / Suspended"}
+                />
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
+        )}
+      </Modal>
+
+      {/* Create/Edit Modal */}
       <Modal
         title={
           <Title level={4} style={{ margin: 0 }}>
@@ -310,10 +434,10 @@ export default function Users() {
         cancelText="Cancel"
         destroyOnClose
         centered
-        width={550} // ကတ်နှစ်ခု ဘေးယှဉ်ဖို့ အကျယ်ကို တိုးပေးထားပါတယ်
+        width={600}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 20 }}>
-          {/* Enhanced Avatar Upload Section */}
+          {/* Avatar */}
           <div
             style={{
               display: "flex",
@@ -341,27 +465,27 @@ export default function Users() {
               beforeUpload={handleBeforeUpload}
               accept="image/*"
             >
-              <Button
-                icon={<UploadOutlined />}
-                size="middle"
-                style={{ borderRadius: "4px" }}
-              >
+              <Button icon={<UploadOutlined />} size="middle">
                 Choose Avatar
               </Button>
             </Upload>
           </div>
 
-          {/* Grid Rows for Layout (ဘေးချင်းယှဉ်ပေးလိုက်လို့ အောက်ကို အရှည်ကြီး ဆင်းမသွားတော့ပါ) */}
+          {/* Row 1: Name + Email */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="name"
                 label="Full Name"
-                rules={[{ required: true, message: "Please enter full name" }]}
+                rules={[
+                  { required: true, message: "Please enter full name" },
+                  { min: 2, message: "Name must be at least 2 characters" },
+                  { max: 50, message: "Name must not exceed 50 characters" },
+                  { pattern: /^[a-zA-Z\s]+$/, message: "Name can only contain letters and spaces" },
+                ]}
               >
                 <Input
                   prefix={<UserOutlined style={{ color: "#bfbfbf" }} />}
-                  size="large"
                   placeholder="John Doe"
                 />
               </Form.Item>
@@ -371,31 +495,28 @@ export default function Users() {
                 name="email"
                 label="Email Address"
                 rules={[
-                  {
-                    required: true,
-                    type: "email",
-                    message: "Please enter a valid email",
-                  },
+                  { required: true, message: "Please enter email address" },
+                  { type: "email", message: "Please enter a valid email address" },
                 ]}
+                validateTrigger="onBlur"
               >
                 <Input
                   prefix={<MailOutlined style={{ color: "#bfbfbf" }} />}
-                  size="large"
                   placeholder="example@mail.com"
                 />
               </Form.Item>
             </Col>
           </Row>
 
+          {/* Row 2: Role + Section */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="role"
                 label="User Role"
-                rules={[{ required: true, message: "Please select user role" }]}
+                rules={[{ required: true, message: "Please select a user role" }]}
               >
                 <Select
-                  size="large"
                   placeholder="Select a role"
                   options={[
                     { value: "ADMIN", label: "Admin" },
@@ -406,43 +527,102 @@ export default function Users() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="classId" label="Class">
+              <Form.Item name="classId" label="Section">
                 <Select
                   allowClear
-                  placeholder="Select Class"
+                  placeholder="Select Section"
                   options={classes.map((c) => ({
                     value: c.id,
-                    label: `${c.grade?.name} - ${c.name}`,
+                    label: `${c.grade?.name || ""} - ${c.name}`.trim(),
                   }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="phone" label="Phone Number">
-                <Input
-                  prefix={<PhoneOutlined style={{ color: "#bfbfbf" }} />}
-                  size="large"
-                  placeholder="09xxxxxxxxx"
                 />
               </Form.Item>
             </Col>
           </Row>
 
+          {/* Row 3: Phone + Date of Birth */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="phone"
+                label="Phone Number"
+                rules={[
+                  { pattern: /^[0-9+\-\s()]{7,15}$/, message: "Please enter a valid phone number" },
+                ]}
+              >
+                <Input
+                  prefix={<PhoneOutlined style={{ color: "#bfbfbf" }} />}
+                  placeholder="09xxxxxxxxx"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="dateOfBirth" label="Date of Birth">
+                <DatePicker
+                  style={{ width: "100%" }}
+                  placeholder="Select date of birth"
+                  defaultPickerValue={dayjs("2005-01-01")}
+                  disabledDate={(current) => {
+                    const start = dayjs("2005-01-01");
+                    const end = dayjs().endOf("year");
+                    return current && (current.isBefore(start, "day") || current.isAfter(end, "day"));
+                  }}
+                  format={[
+                    "DD/MMM/YYYY",
+                    "DD-MM-YYYY",
+                    "YYYY-MM-DD",
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 4: Parent Name + Address */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="parentName"
+                label="Parent Name"
+                rules={[
+                  { min: 2, message: "Parent name must be at least 2 characters" },
+                  { max: 50, message: "Parent name must not exceed 50 characters" },
+                ]}
+              >
+                <Input placeholder="Parent / Guardian name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="address"
+                label="Address"
+                rules={[
+                  { max: 200, message: "Address must not exceed 200 characters" },
+                ]}
+              >
+                <Input placeholder="Home address" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 5: Password / Status */}
           <Row gutter={16}>
             {modalMode === "create" ? (
               <Col span={24}>
-                <Form.Item name="password" label="Account Password">
-                  <Input.Password
-                    size="large"
-                    placeholder="Minimum 6 characters recommended"
-                  />
+                <Form.Item
+                  name="password"
+                  label="Account Password"
+                  rules={[
+                    { min: 6, message: "Password must be at least 6 characters" },
+                    { max: 30, message: "Password must not exceed 30 characters" },
+                  ]}
+                >
+                  <Input.Password placeholder="Minimum 6 characters recommended" />
                 </Form.Item>
               </Col>
             ) : (
               <Col span={24}>
                 <Form.Item name="isActive" label="Account Status">
                   <Select
-                    size="large"
                     options={[
                       { value: true, label: "Active Account" },
                       { value: false, label: "Inactive / Suspended" },
@@ -454,6 +634,8 @@ export default function Users() {
           </Row>
         </Form>
       </Modal>
-    </>
+    </div>
   );
 }
+
+

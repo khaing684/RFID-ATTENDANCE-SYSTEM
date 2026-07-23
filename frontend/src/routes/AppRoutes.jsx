@@ -21,22 +21,18 @@ function PrivateRoute({ children }) {
   return token ? children : <Navigate to="/login" replace />;
 }
 
-/** Token ရှိရင် login/register မပြဘဲ dashboard ကိုပို့မယ် */
-function PublicRoute({ children }) {
-  const { token } = useSelector((state) => state.auth);
-  return token ? <Navigate to="/dashboard" replace /> : children;
-}
-
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Public - login ပြီးသားဆို dashboard ပို့ */}
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      {/* Root → Login ကို အမြဲပြမယ် (token ရှိရှိမရှိရှိ) */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+
+      {/* Public - login/register ကို အမြဲပြမယ် */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       {/* Protected - token လိုအပ် */}
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="tags" element={<Tags />} />
         <Route path="devices" element={<Devices />} />

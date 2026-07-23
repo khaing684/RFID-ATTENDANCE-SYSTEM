@@ -7,54 +7,37 @@ datasource db {
 }
 
 // ============================================
-// ACADEMIC YEAR - ပညာသင်နှစ် (2025-2026)
+// GRADE - အတန်း (Grade-10, Grade-9)
 // ============================================
-model AcademicYear {
+model Grade {
   id        String   @id @default(uuid())
-  year      String   @unique // "2025-2026"
-  isCurrent Boolean  @default(false)
-  startDate DateTime
-  endDate   DateTime
+  name      String   // "Grade-10"
+  type      String   @default("PHYSICAL") // ONLINE | PHYSICAL
+  classes   Class[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  enrollments Enrollment[]
 
-  @@map("academic_years")
+  @@unique([name, type])
+  @@map("grades")
 }
 
 // ============================================
-// GRADE LEVEL - အတန်း (Grade-10, Grade-11)
+// CLASS - အခန်း (Section-A, Section-B)
 // ============================================
-model GradeLevel {
-  id        String    @id @default(uuid())
-  name      String    // "Grade-10"
-  level     Int       @default(0) // 10, 11, 12
-  sections  Section[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model Class {
+  id        String   @id @default(uuid())
+  name      String   // "Section-A"
+  gradeId   String
+  grade     Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  teacherId String?  // အတန်းပိုင်ဆရာ
+  teacher   User?    @relation("ClassTeacher", fields: [teacherId], references: [id])
+  students  User[]   @relation("StudentClass")
+  timetables Timetable[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([name])
-  @@map("grade_levels")
-}
-
-// ============================================
-// SECTION - အခန်း (Section-A, Section-B)
-// ============================================
-model Section {
-  id           String   @id @default(uuid())
-  name         String   // "Section-A"
-  gradeLevelId String
-  gradeLevel   GradeLevel @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
-  teacherId    String?  // အတန်းပိုင်ဆရာ
-  teacher      User?    @relation("SectionTeacher", fields: [teacherId], references: [id])
-  room         String?  // စာသင်ခန်း (Rm-201)
-  capacity     Int      @default(40) // ကျောင်းသားဦးရေကန့်သတ်ချက်
-  schedules    Schedule[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([name, gradeLevelId])
-  @@map("sections")
+  @@unique([name, gradeId])
+  @@map("classes")
 }
 
 // ============================================
@@ -68,19 +51,24 @@ model User {
   role        Role     @default(STUDENT)
   phone       String?
   avatar      String?
+  dateOfBirth String?
+  parentName  String?
+  address     String?
   isActive    Boolean  @default(true)
+  classId     String?
+  class       Class?   @relation("StudentClass", fields: [classId], references:[id])
   
   lastLoginAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  teacherSections    Section[]  @relation("SectionTeacher")
-  enrollments        Enrollment[]
+  teacherClasses      Class[]  @relation("ClassTeacher")
   assignedTags  Tag[]     @relation("AssignedTo")
   scanLogs      ScanLog[]
   createdTags   Tag[]     @relation("CreatedBy")
   createdDevices Device[] @relation("DeviceCreatedBy")
 
   @@map("users")
+  @@index([classId])
 }
 
 enum Role {
@@ -90,49 +78,27 @@ enum Role {
 }
 
 // ============================================
-// ENROLLMENT - ကျောင်းသားစာရင်း (Student → Section)
-// ============================================
-model Enrollment {
-  id             String       @id @default(uuid())
-  studentId      String
-  student        User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  sectionId      String
-  section        Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  academicYearId String
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
-  enrolledAt     DateTime     @default(now())
-
-  @@unique([studentId, sectionId, academicYearId])
-  @@index([sectionId])
-  @@index([academicYearId])
-  @@map("enrollments")
-}
-
-// ============================================
-// SUBJECT - ဘာသာရပ် (မြန်မာ, အင်္ဂလိပ်, သင်္ချာ)
+// SUBJECT - ဘာသာရပ်
 // ============================================
 model Subject {
-  id        String     @id @default(uuid())
-  name      String
-  code      String     @unique
-  color     String     @default("#1677ff")
-  credits   Int        @default(1)  // ဘာသာရပ်ခရက်ဒစ်
-  teacherId String?    // တာဝန်ခံဆရာ
-  teacher   User?      @relation("SubjectTeacher", fields: [teacherId], references: [id])
-  schedules Schedule[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         String     @id @default(uuid())
+  name       String
+  code       String     @unique
+  color      String     @default("#1677ff")
+  timetables Timetable[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@map("subjects")
 }
 
 // ============================================
-// SCHEDULE - အချိန်ဇယား (Timetable)
+// TIMETABLE - အချိန်ဇယား
 // ============================================
-model Schedule {
+model Timetable {
   id        String   @id @default(uuid())
-  sectionId String
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   subjectId String
   subject   Subject  @relation(fields: [subjectId], references: [id])
   dayOfWeek Int      // 0=Sun, 1=Mon ... 6=Sat
@@ -141,14 +107,13 @@ model Schedule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([sectionId, dayOfWeek, startTime])
-  @@index([sectionId, dayOfWeek])
-  @@map("schedules")
+  @@unique([classId, dayOfWeek, startTime])
+  @@index([classId, dayOfWeek])
+  @@map("timetables")
 }
 
-
 // ============================================
-// TAG - RFID Tag များ (ကျောင်းသား/ဆရာ ကတ်ပြား)
+// TAG - RFID Tag များ
 // ============================================
 model Tag {
   id          String    @id @default(uuid())
@@ -156,18 +121,13 @@ model Tag {
   tagType     TagType   @default(PASSIVE)
   status      TagStatus @default(ACTIVE)
   description String?
-
-  // ဘယ်သူ့ဆီမှာ ရှိလဲ (Teacher သို့ Student)
   assignedToId String?
   assignedTo   User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
   assignedAt   DateTime?
-
-  // Tracking
   createdById String
   createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
   scanLogs ScanLog[]
 
   @@index([status])

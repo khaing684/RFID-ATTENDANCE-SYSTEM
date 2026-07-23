@@ -47,8 +47,8 @@ app.use('/api/devices', require('./routes/devices'));
 app.use('/api/scanlogs', require('./routes/scanLogs'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/settings', require('./routes/settings'));
-app.use('/api', require('./routes/academic'));  // AcademicYear + GradeLevel + Section + Enrollment
-app.use('/api', require ('./routes/schedule')); // Subject + Schedule
+app.use('/api', require('./routes/classes'));
+app.use('/api', require ('./routes/timetable'));
 app.use('/api/holidays', require('./routes/holidays'));
 
 // ---- Error Handling ----

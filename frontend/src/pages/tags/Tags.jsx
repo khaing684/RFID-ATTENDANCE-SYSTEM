@@ -228,7 +228,7 @@ export default function Tags() {
             icon={<UserSwitchOutlined />}
             onClick={() => handleOpenAssign(r)}
             >
-            Detail
+            User Id
             </Button>
           
           <Button
