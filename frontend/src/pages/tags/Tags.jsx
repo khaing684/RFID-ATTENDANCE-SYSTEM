@@ -47,6 +47,8 @@ export default function Tags() {
   const [editingTag, setEditingTag] = useState(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignTagId, setAssignTagId] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [form] = Form.useForm();
   const [assignForm] = Form.useForm();
 
@@ -85,6 +87,7 @@ export default function Tags() {
         status: record.status,
       });
     else form.resetFields();
+    if (mode === "edit") fetchUsers();
     setModalOpen(true);
   };
 
@@ -122,9 +125,22 @@ export default function Tags() {
     }
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const { data } = await api.get("/users", { params: { limit: 1000 } });
+      setUsers(data.users || []);
+    } catch {
+      message.error("Failed to load users");
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   const handleOpenAssign = (record) => {
     setAssignTagId(record.id);
     assignForm.setFieldsValue({ userId: record.assignedTo?.id || "" });
+    fetchUsers();
     setAssignOpen(true);
   };
 
@@ -171,14 +187,14 @@ export default function Tags() {
       render: (t) => <Tag color="blue">{t}</Tag>,
     },
     {
-      title: "Status",
+      title: "Type",
       dataIndex: "tagType",
       align: "center",
       width: 100,
       render: (v) => <Tag>{v === "ACTIVE" ? "Active" : "Passive"}</Tag>,
     },
     {
-      title: "State",
+      title: "Status",
       dataIndex: "status",
       align: "center",
       width: 110,
@@ -214,7 +230,7 @@ export default function Tags() {
       dataIndex: "createdAt",
       align: "center",
       width: 150,
-      render: (v) => new Date(v).toLocaleDateString("my-MM"),
+      render: (v) => new Date(v).toLocaleString("en-US", { timeZone: "Asia/Yangon" })
     },
     {
       title: "Action",
@@ -228,7 +244,7 @@ export default function Tags() {
             icon={<UserSwitchOutlined />}
             onClick={() => handleOpenAssign(r)}
             >
-            User Id
+             Assign 
             </Button>
           
           <Button
@@ -260,8 +276,8 @@ export default function Tags() {
         <Col>
           <Space wrap>
             <Input placeholder="Search by RFID Code" prefix={<SearchOutlined />} allowClear style={{ width: 200 }} value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} />
-            <Select placeholder="Status" allowClear style={{ width: 130 }} value={filters.tagType || undefined} onChange={(v) => setFilters((f) => ({ ...f, tagType: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "PASSIVE", label: "Passive" }]} />
-            <Select placeholder="State" allowClear style={{ width: 130 }} value={filters.status || undefined} onChange={(v) => setFilters((f) => ({ ...f, status: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Inactive" }, { value: "LOST", label: "Lost" }, { value: "DAMAGED", label: "Damage" }]} />
+            <Select placeholder="Type" allowClear style={{ width: 130 }} value={filters.tagType || undefined} onChange={(v) => setFilters((f) => ({ ...f, tagType: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "PASSIVE", label: "Passive" }]} />
+            <Select placeholder="Status" allowClear style={{ width: 130 }} value={filters.status || undefined} onChange={(v) => setFilters((f) => ({ ...f, status: v || "" }))} options={[{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Inactive" }, { value: "LOST", label: "Lost" }, { value: "DAMAGED", label: "Damage" }]} />
             <Button icon={<ClearOutlined />} onClick={() => setFilters({ status: "", tagType: "", search: "" })}> Clear </Button>
           </Space>
         </Col>
@@ -311,7 +327,7 @@ export default function Tags() {
           >
             <Input placeholder="Eg- RF-001" />
           </Form.Item>
-          <Form.Item name="tagType" label="Status" initialValue="PASSIVE">
+          <Form.Item name="tagType" label="Type" initialValue="PASSIVE">
             <Select
               options={[
                 { value: "PASSIVE", label: "Passive" },
@@ -319,7 +335,7 @@ export default function Tags() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="status" label="State" initialValue="ACTIVE">
+          <Form.Item name="status" label="Status" initialValue="ACTIVE">
             <Select
               options={[
                 { value: "ACTIVE", label: "Active" },
@@ -332,6 +348,21 @@ export default function Tags() {
           <Form.Item name="description" label="Note">
             <Input.TextArea rows={2} placeholder="Note...." />
           </Form.Item>
+
+          {editingTag && (
+            <Form.Item label="Assigned User">
+              {editingTag.assignedTo ? (
+                <Tag
+                  color={roleColorMap[editingTag.assignedTo.role]}
+                  style={{ fontSize: 14, padding: "4px 12px" }}
+                >
+                  {editingTag.assignedTo.name} ({roleLabelMap[editingTag.assignedTo.role]})
+                </Tag>
+              ) : (
+                <Typography.Text type="secondary">— None —</Typography.Text>
+              )}
+            </Form.Item>
+          )}
         </Form>
       </Modal>
       <Modal
@@ -344,8 +375,21 @@ export default function Tags() {
         destroyOnClose
       >
         <Form form={assignForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="userId" label="User ID">
-            <Input placeholder="Enter User ID " allowClear />
+          <Form.Item name="userId" label="Assign to User">
+            <Select
+              allowClear
+              showSearch
+              loading={usersLoading}
+              placeholder="Search & select a user..."
+              filterOption={(input, option) =>
+                option.label?.toLowerCase().includes(input.toLowerCase())
+              }
+              options={users.map((u) => ({
+                value: u.id,
+                label: `${u.name} (${u.email})`,
+              }))}
+              notFoundContent={usersLoading ? "Loading..." : "No users found"}
+            />
           </Form.Item>
         </Form>
       </Modal>

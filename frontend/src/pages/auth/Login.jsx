@@ -10,20 +10,18 @@ const { Title, Text } = Typography;
 export default function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error, token } = useSelector((state) => state.auth);
-
-  // Login ပြီးသွားရင် dashboard ကိုပို့
-  useEffect(() => {
-    if (token) navigate("/dashboard");
-  }, [token, navigate]);
+  const { loading, error } = useSelector((state) => state.auth);
 
   // Page ပြောင်းရင် error ရှင်း
   useEffect(() => {
     return () => dispatch(clearError());
   }, [dispatch]);
 
-  const onFinish = (values) => {
-    dispatch(loginUser(values));
+  const onFinish = async (values) => {
+    const result = await dispatch(loginUser(values));
+    if (result.meta.requestStatus === 'fulfilled') {
+      navigate('/dashboard');
+    }
   };
 
   return (
@@ -46,7 +44,7 @@ export default function Login() {
         </div>
 
         {error && (
-          <Alert
+          <Alertsssssss
             message={error}
             type="error"
             showIcon

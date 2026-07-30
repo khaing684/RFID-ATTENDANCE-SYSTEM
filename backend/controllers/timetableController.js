@@ -49,7 +49,10 @@ const getTimetableByClass = async (req, res, next) => {
   try {
     const entries = await prisma.timetable.findMany({
       where: { classId: req.params.classId },
-      include: { subject: { select: { id: true, name: true, code: true, color: true } } },
+      include: {
+        subject: { select: { id: true, name: true, code: true, color: true } },
+        class: { select: { id: true, name: true, grade: { select: { name: true } } } },
+      },
       orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
     });
     res.json({ success: true, entries });
@@ -58,10 +61,32 @@ const getTimetableByClass = async (req, res, next) => {
 
 const createTimetable = async (req, res, next) => {
   try {
-    const { classId, subjectId, dayOfWeek, startTime, endTime } = req.body;
+    const { classId, subjectId, teacherId, dayOfWeek, startTime, endTime } = req.body;
+
+    // Teacher conflict check
+    if (teacherId) {
+      const conflict = await prisma.timetable.findFirst({
+        where: {
+          teacherId,
+          dayOfWeek,
+          startTime,
+          classId: { not: classId },
+        },
+      });
+      if (conflict) {
+        return res.status(409).json({
+          success: false,
+          message: 'Teacher already has a class at this time',
+        });
+      }
+    }
+
     const entry = await prisma.timetable.create({
-      data: { classId, subjectId, dayOfWeek, startTime, endTime },
-      include: { subject: { select: { id: true, name: true, code: true, color: true } } },
+      data: { classId, subjectId, teacherId, dayOfWeek, startTime, endTime },
+      include: {
+        subject: { select: { id: true, name: true, code: true, color: true } },
+        teacher: { select: { id: true, name: true } },
+      },
     });
     res.status(201).json({ success: true, entry });
   } catch (error) {
@@ -73,16 +98,44 @@ const createTimetable = async (req, res, next) => {
 
 const updateTimetable = async (req, res, next) => {
   try {
-    const { subjectId, dayOfWeek, startTime, endTime } = req.body;
+    const { subjectId, teacherId, dayOfWeek, startTime, endTime } = req.body;
     const data = {};
     if (subjectId) data.subjectId = subjectId;
+    if (teacherId !== undefined) data.teacherId = teacherId;
     if (dayOfWeek !== undefined) data.dayOfWeek = dayOfWeek;
     if (startTime) data.startTime = startTime;
     if (endTime) data.endTime = endTime;
+
+    // Get current entry to know classId for conflict check
+    const current = await prisma.timetable.findUnique({ where: { id: req.params.id } });
+    const targetTeacherId = teacherId !== undefined ? teacherId : current?.teacherId;
+    const targetDayOfWeek = dayOfWeek !== undefined ? dayOfWeek : current?.dayOfWeek;
+    const targetStartTime = startTime || current?.startTime;
+
+    if (targetTeacherId) {
+      const conflict = await prisma.timetable.findFirst({
+        where: {
+          teacherId: targetTeacherId,
+          dayOfWeek: targetDayOfWeek,
+          startTime: targetStartTime,
+          id: { not: req.params.id },
+        },
+      });
+      if (conflict) {
+        return res.status(409).json({
+          success: false,
+          message: 'Teacher already has a class at this time',
+        });
+      }
+    }
+
     const entry = await prisma.timetable.update({
       where: { id: req.params.id },
       data,
-      include: { subject: { select: { id: true, name: true, code: true, color: true } } },
+      include: {
+        subject: { select: { id: true, name: true, code: true, color: true } },
+        teacher: { select: { id: true, name: true } },
+      },
     });
     res.json({ success: true, entry });
   } catch (error) { next(error); }

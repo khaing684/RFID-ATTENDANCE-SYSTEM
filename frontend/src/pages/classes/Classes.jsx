@@ -62,17 +62,41 @@ export default function Classes() {
         await api.patch(`/classes/${editing.id}`, values);
         message.success("Class updated");
         classId = editing.id;
+
+        // Assign existing students (edit mode)
+        const existingIds = values.existingStudents || [];
+        for (const sid of existingIds) {
+          try { await api.patch(`/users/${sid}`, { classId }); } catch { /* skip */ }
+        }
+
+        // Create new students (edit mode)
+        const names = (values.studentNames || "").split("\n").map(s => s.trim()).filter(Boolean);
+        let count = 0;
+        for (const name of names) {
+          try {
+            await api.post("/users", {
+              name,
+              email: `${name.toLowerCase().replace(/\s/g, "")}${Date.now()}@gmail.com`,
+              password: "password123",
+              role: "STUDENT",
+              classId,
+            });
+            count++;
+          } catch { /* skip */ }
+        }
+        const totalAdded = existingIds.length + count;
+        if (totalAdded > 0) message.success(`${totalAdded} student(s) added to class`);
       } else {
         const { data } = await api.post("/classes", values);
         message.success("Class created");
         classId = data.class.id;
-        
+
         // Assign existing students
         const existingIds = values.existingStudents || [];
         for (const sid of existingIds) {
           try { await api.patch(`/users/${sid}`, { classId }); } catch { /* skip */ }
         }
-        
+
         // Create new students
         const names = (values.studentNames || "").split("\n").map(s => s.trim()).filter(Boolean);
         let count = 0;
@@ -97,8 +121,9 @@ export default function Classes() {
       fetchData();
     } catch (err) { if (err.response) message.error(err.response.data?.message || "Error"); }
   };
+  
 
-  const openClassModal = (record = null) => {
+  const openClassModal = async (record = null) => {
     setEditing(record);
     if (record) {
       classForm.setFieldsValue({
@@ -106,8 +131,13 @@ export default function Classes() {
         gradeId: record.gradeId,
         teacherId: record.teacherId || undefined,
       });
-      // Filter from local students list
-      setClassStudents(students.filter((s) => s.classId === record.id));
+      // Fetch enrolled students from API by classId (matches backend _count)
+      try {
+        const { data } = await api.get("/users", { params: { classId: record.id, limit: 500 } });
+        setClassStudents(data.users || []);
+      } catch {
+        setClassStudents([]);
+      }
     } else {
       classForm.resetFields();
       setClassStudents([]);
@@ -402,6 +432,26 @@ export default function Classes() {
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No students in this class" />
                 )}
               </div>
+
+              <Divider orientation="left" style={{ fontSize: 13, color: "#8c8c8c" }}>
+                Add More Students
+              </Divider>
+              <Form.Item name="existingStudents" label="Add Existing Students">
+                <Select 
+                  mode="multiple" 
+                  allowClear 
+                  placeholder="Search and select students..."
+                  showSearch 
+                  optionFilterProp="label"
+                  maxTagCount="responsive"
+                  options={students
+                    .filter((s) => !s.classId)
+                    .map((s) => ({ value: s.id, label: `${s.name} (${s.email})` }))} 
+                />
+              </Form.Item>
+              <Form.Item name="studentNames" label="Or Quick Add New Students (One name per line)">
+                <Input.TextArea rows={3} placeholder={"Mg Mg\nAye Aye\nKo Ko"} />
+              </Form.Item>
             </>
           ) : (
             <>
@@ -414,7 +464,9 @@ export default function Classes() {
                   showSearch 
                   optionFilterProp="label"
                   maxTagCount="responsive"
-                  options={students.map((s) => ({ value: s.id, label: `${s.name} (${s.email})${s.classId ? " ✅" : ""}` }))} 
+                  options={students
+                    .filter((s) => !s.classId)
+                    .map((s) => ({ value: s.id, label: `${s.name} (${s.email})` }))} 
                 />
               </Form.Item>
               <Form.Item name="studentNames" label="Or Quick Add New Students (One name per line)">

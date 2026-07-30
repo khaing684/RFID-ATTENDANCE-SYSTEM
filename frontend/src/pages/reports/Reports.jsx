@@ -70,7 +70,7 @@ export default function Reports() {
     {
       title: "Date",
       dataIndex: "scannedAt",
-      render: (v) => (v ? new Date(v).toLocaleString("my-MM") : "-"),
+      render: (v) => (v ? new Date(v).toLocaleString("en-US", { timeZone: "Asia/Yangon" }) : "-"),
     },
   ];
 

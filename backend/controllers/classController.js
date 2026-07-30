@@ -31,10 +31,25 @@ const getClassesByGrade = async (req, res, next) => {
       where: { gradeId: req.params.gradeId },
       include: {
         teacher: { select: { id: true, name: true } },
-        _count: { select: { students: true } },
       },
     });
-    res.json({ success: true, classes });
+
+    // Count only STUDENT role users per class
+    const classIds = classes.map((c) => c.id);
+    const studentCounts = await prisma.user.groupBy({
+      by: ['classId'],
+      where: { classId: { in: classIds }, role: 'STUDENT' },
+      _count: { id: true },
+    });
+    const countMap = {};
+    studentCounts.forEach((item) => { countMap[item.classId] = item._count.id; });
+
+    const result = classes.map((cls) => ({
+      ...cls,
+      _count: { students: countMap[cls.id] || 0 },
+    }));
+
+    res.json({ success: true, classes: result });
   } catch (error) { next(error); }
 };
 
@@ -68,11 +83,25 @@ const getAllClasses = async (req, res, next) => {
       include: {
         grade: { select: { name: true, type: true } },
         teacher: { select: { id: true, name: true } },
-        _count: { select: { students: true } },
       },
       orderBy: [{ grade: { createdAt: 'asc' } }, { name: 'asc' }],
     });
-    res.json({ success: true, classes });
+
+    // Count only STUDENT role users per class (ignore TEACHER/ADMIN with classId)
+    const studentCounts = await prisma.user.groupBy({
+      by: ['classId'],
+      where: { role: 'STUDENT', classId: { not: null } },
+      _count: { id: true },
+    });
+    const countMap = {};
+    studentCounts.forEach((item) => { countMap[item.classId] = item._count.id; });
+
+    const result = classes.map((cls) => ({
+      ...cls,
+      _count: { students: countMap[cls.id] || 0 },
+    }));
+
+    res.json({ success: true, classes: result });
   } catch (error) { next(error); }
 };
 

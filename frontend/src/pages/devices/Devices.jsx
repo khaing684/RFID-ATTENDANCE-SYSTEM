@@ -193,7 +193,7 @@ export default function Devices() {
       dataIndex: "lastSeenAt",
       align: "center",
       width: 130,
-      render: (v) => (v ? new Date(v).toLocaleString("my-MM") : "မရှိ"),
+      render: (v) => (v ? new Date(v).toLocaleString("en-US", { timeZone: "Asia/Yangon" }) : "-"),
     },
     {
       title: "Action",

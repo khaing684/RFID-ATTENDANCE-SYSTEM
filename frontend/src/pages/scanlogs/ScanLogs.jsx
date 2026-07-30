@@ -155,7 +155,7 @@ export default function ScanLogs() {
       dataIndex: "scannedAt",
       align: "center", 
       width: 110,
-      render: (v) => new Date(v).toLocaleString("my-MM"),
+      render: (v) => new Date(v).toLocaleString("en-US", { timeZone: "Asia/Yangon" }),
     },
    
    

@@ -92,7 +92,7 @@ export default function Dashboard() {
       dataIndex: "scannedAt",
       key: "time",
       align: "center",
-      render: (d) => (d ? new Date(d).toLocaleString("my-MM") : "-"),
+      render: (d) => (d ? new Date(d).toLocaleString("en-US", { timeZone: "Asia/Yangon" }) : "-"),
     },
   ];
 

@@ -71,7 +71,9 @@ export default function Users() {
     try {
       const { data } = await api.get("/classes");
       setClasses(data.classes || []);
-    } catch {}
+    } catch (err) {
+      console.error("Failed to load classes:", err);
+    }
   };
 
   const fetchUsers = useCallback(
@@ -104,18 +106,32 @@ export default function Users() {
     STUDENT: { color: "green", text: "Student" },
   };
 
+  
+
   const handleOpenModal = (mode, record = null) => {
     setModalMode(mode);
     setEditingUser(record);
     setAvatarFile(null);
     if (record) {
+      // Parse parent names from combined string
+      let fatherName = record.fatherName || "";
+      let motherName = record.motherName || "";
+      let parentName = record.parentName || "";
+      if (!fatherName && !motherName && parentName) {
+        const fatherMatch = parentName.match(/Father:\s*([^|]+)/);
+        const motherMatch = parentName.match(/Mother:\s*([^|]+)/);
+        if (fatherMatch) fatherName = fatherMatch[1].trim();
+        if (motherMatch) motherName = motherMatch[1].trim();
+      }
       form.setFieldsValue({
         name: record.name,
         email: record.email,
         role: record.role,
         phone: record.phone,
         dateOfBirth: record.dateOfBirth ? dayjs(record.dateOfBirth) : null,
-        parentName: record.parentName,
+        fatherName,
+        motherName,
+        parentName: parentName && !fatherName && !motherName ? parentName : undefined,
         address: record.address,
         classId: record.classId || undefined,
         isActive: record.isActive,
@@ -150,6 +166,13 @@ export default function Users() {
       if (values.dateOfBirth && dayjs.isDayjs(values.dateOfBirth)) {
         values.dateOfBirth = values.dateOfBirth.format("YYYY-MM-DD");
       }
+      // Combine parent names
+      const names = [];
+      if (values.fatherName) names.push(`Father: ${values.fatherName}`);
+      if (values.motherName) names.push(`Mother: ${values.motherName}`);
+      values.parentName = names.join(" | ") || values.parentName;
+      delete values.fatherName;
+      delete values.motherName;
       if (avatarFile) {
         values.avatar = await getBase64(avatarFile);
       } else if (modalMode === "edit") {
@@ -192,6 +215,16 @@ export default function Users() {
     const cls = classes.find((c) => c.id === classId);
     return cls ? `${cls.grade?.name || ""} - ${cls.name}`.trim() : "-";
   };
+
+  const parseParentName = (parentName) => {
+  if (!parentName) return { fatherName: null, motherName: null };
+  const fatherMatch = parentName.match(/Father:\s*([^|]+)/);
+  const motherMatch = parentName.match(/Mother:\s*([^|]+)/);
+  return {
+    fatherName: fatherMatch ? fatherMatch[1].trim() : null,
+    motherName: motherMatch ? motherMatch[1].trim() : null,
+  };
+};
 
   // -- Essential Columns (Table) --
   const columns = [
@@ -400,8 +433,20 @@ export default function Users() {
                   ? dayjs(selectedUser.dateOfBirth).format("DD MMM YYYY")
                   : "N/A"}
               </Descriptions.Item>
-              <Descriptions.Item label="Parent Name">
-                {selectedUser.parentName || "N/A"}
+              <Descriptions.Item label="Father">
+                {parseParentName(selectedUser.parentName).fatherName || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Mother">
+                {parseParentName(selectedUser.parentName).motherName || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Guardian">
+                {(() => {
+                  const pn = selectedUser.parentName;
+                  if (!pn) return "N/A";
+                  // Auto-combined from Father/Mother → show N/A
+                  if (/^(Father:|Mother:)/.test(pn)) return "N/A";
+                  return pn;
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Address">
                 {selectedUser.address || "N/A"}
@@ -527,15 +572,33 @@ export default function Users() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="classId" label="Section">
+              <Form.Item name="classId" label="Class">
                 <Select
                   allowClear
-                  placeholder="Select Section"
-                  options={classes.map((c) => ({
-                    value: c.id,
-                    label: `${c.grade?.name || ""} - ${c.name}`.trim(),
-                  }))}
-                />
+                  placeholder="Select Class"
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.label?.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {(() => {
+                    const grouped = classes.reduce((acc, c) => {
+                      const gradeName = c.grade?.name || "Unknown";
+                      if (!acc[gradeName]) acc[gradeName] = [];
+                      acc[gradeName].push(c);
+                      return acc;
+                    }, {});
+                    return Object.entries(grouped).map(([gradeName, clsList]) => (
+                      <Select.OptGroup key={gradeName} label={`${gradeName}`}>
+                        {clsList.map((c) => (
+                          <Select.Option key={c.id} value={c.id} label={`${gradeName} / ${c.name}`}>
+                            {c.name}
+                          </Select.Option>
+                        ))}
+                      </Select.OptGroup>
+                    ));
+                  })()}
+                </Select>
               </Form.Item>
             </Col>
           </Row>
@@ -561,34 +624,31 @@ export default function Users() {
                 <DatePicker
                   style={{ width: "100%" }}
                   placeholder="Select date of birth"
-                  defaultPickerValue={dayjs("2005-01-01")}
-                  disabledDate={(current) => {
-                    const start = dayjs("2005-01-01");
-                    const end = dayjs().endOf("year");
-                    return current && (current.isBefore(start, "day") || current.isAfter(end, "day"));
-                  }}
-                  format={[
-                    "DD/MMM/YYYY",
-                    "DD-MM-YYYY",
-                    "YYYY-MM-DD",
-                  ]}
+                  format={["DD/MMM/YYYY", "DD-MM-YYYY", "YYYY-MM-DD"]}
                 />
               </Form.Item>
             </Col>
           </Row>
 
-          {/* Row 4: Parent Name + Address */}
+          {/* Row 4: Parents Name */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                name="parentName"
-                label="Parent Name"
-                rules={[
-                  { min: 2, message: "Parent name must be at least 2 characters" },
-                  { max: 50, message: "Parent name must not exceed 50 characters" },
-                ]}
-              >
-                <Input placeholder="Parent / Guardian name" />
+              <Form.Item name="fatherName" label="Father Name">
+                <Input prefix={<UserOutlined />} placeholder="Father's full name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="motherName" label="Mother Name">
+                <Input prefix={<UserOutlined />} placeholder="Mother's full name" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 5: Parent Name (optional) + Address */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="parentName" label="Guardian (optional)">
+                <Input placeholder="Other guardian if different" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -599,40 +659,11 @@ export default function Users() {
                   { max: 200, message: "Address must not exceed 200 characters" },
                 ]}
               >
-                <Input placeholder="Home address" />
+                <Input.TextArea rows={2} placeholder="Home address" />
               </Form.Item>
             </Col>
           </Row>
-
-          {/* Row 5: Password / Status */}
-          <Row gutter={16}>
-            {modalMode === "create" ? (
-              <Col span={24}>
-                <Form.Item
-                  name="password"
-                  label="Account Password"
-                  rules={[
-                    { min: 6, message: "Password must be at least 6 characters" },
-                    { max: 30, message: "Password must not exceed 30 characters" },
-                  ]}
-                >
-                  <Input.Password placeholder="Minimum 6 characters recommended" />
-                </Form.Item>
-              </Col>
-            ) : (
-              <Col span={24}>
-                <Form.Item name="isActive" label="Account Status">
-                  <Select
-                    options={[
-                      { value: true, label: "Active Account" },
-                      { value: false, label: "Inactive / Suspended" },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-            )}
-          </Row>
-        </Form>
+          </Form>
       </Modal>
     </div>
   );
